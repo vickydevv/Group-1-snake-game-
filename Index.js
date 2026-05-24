@@ -32,8 +32,8 @@ function startGame(mode) {
   gameMode = mode;
   modeText.innerText =
     mode === 1
-      ? "Mode 1: Use arrow keys to steer (no wall death)"
-      : "Mode 2: Use arrow keys to steer (classic rules)";
+      ? "Mode 1: Steer with buttons, swipe, or keys (no wall death)"
+      : "Mode 2: Steer with buttons, swipe, or keys (classic)";
 
   snake = createInitialSnake();
   direction = "RIGHT";
@@ -76,24 +76,82 @@ function randomFood() {
   return newFood;
 }
 
-// Arrow keys only change direction — they do not move the snake directly
+// Change direction (keyboard, touch buttons, and swipe all use this)
+function setDirection(newDir) {
+  if (!gameActive) return false;
+
+  const opposite = {
+    UP: "DOWN",
+    DOWN: "UP",
+    LEFT: "RIGHT",
+    RIGHT: "LEFT",
+  };
+
+  if (direction === opposite[newDir]) return false;
+
+  direction = newDir;
+  return true;
+}
+
 function handleKey(event) {
   if (!gameActive) return;
 
-  // Block instant 180° turns (can't go right into left, etc.)
-  if (event.key === "ArrowUp" && direction !== "DOWN") {
-    direction = "UP";
-    event.preventDefault();
-  } else if (event.key === "ArrowDown" && direction !== "UP") {
-    direction = "DOWN";
-    event.preventDefault();
-  } else if (event.key === "ArrowLeft" && direction !== "RIGHT") {
-    direction = "LEFT";
-    event.preventDefault();
-  } else if (event.key === "ArrowRight" && direction !== "LEFT") {
-    direction = "RIGHT";
-    event.preventDefault();
+  if (event.key === "ArrowUp") {
+    if (setDirection("UP")) event.preventDefault();
+  } else if (event.key === "ArrowDown") {
+    if (setDirection("DOWN")) event.preventDefault();
+  } else if (event.key === "ArrowLeft") {
+    if (setDirection("LEFT")) event.preventDefault();
+  } else if (event.key === "ArrowRight") {
+    if (setDirection("RIGHT")) event.preventDefault();
   }
+}
+
+function setupMobileControls() {
+  document.querySelectorAll(".ctrl-btn").forEach((btn) => {
+    const dir = btn.dataset.dir;
+
+    const onPress = (event) => {
+      event.preventDefault();
+      setDirection(dir);
+    };
+
+    btn.addEventListener("click", onPress);
+    btn.addEventListener("touchstart", onPress, { passive: false });
+  });
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  canvas.addEventListener(
+    "touchstart",
+    (event) => {
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+    },
+    { passive: true }
+  );
+
+  canvas.addEventListener(
+    "touchend",
+    (event) => {
+      if (!gameActive) return;
+
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+      const minSwipe = 28;
+
+      if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        setDirection(dx > 0 ? "RIGHT" : "LEFT");
+      } else {
+        setDirection(dy > 0 ? "DOWN" : "UP");
+      }
+    },
+    { passive: true }
+  );
 }
 
 // Runs automatically on a timer: update positions, then redraw
@@ -330,5 +388,5 @@ function gameOver() {
   alert("Game Over! Your score is: " + score);
 }
 
-// Listen for arrow keys for the whole page
 document.addEventListener("keydown", handleKey);
+setupMobileControls();
